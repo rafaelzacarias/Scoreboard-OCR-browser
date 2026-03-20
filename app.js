@@ -571,7 +571,7 @@ class ScoreboardOCR {
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      const latestCommit = Array.isArray(data) ? data[0] : null;
+      const latestCommit = (Array.isArray(data) && data.length > 0) ? data[0] : null;
       const rawSha = latestCommit?.sha ? String(latestCommit.sha) : '';
       const sha = rawSha ? rawSha.slice(0, SHORT_SHA_LENGTH) : FALLBACK;
       this.versionEl.textContent = `Version: ${sha}`;
