@@ -530,7 +530,7 @@ class ScoreboardOCR {
     try {
       const cachedVersion = localStorage.getItem(CACHE_KEY);
       const cachedTs = Number(localStorage.getItem(CACHE_TS_KEY) || 0);
-      if (cachedVersion && Number.isFinite(cachedTs) && (Date.now() - cachedTs) < CACHE_TTL_MS) {
+      if (cachedVersion && cachedTs > 0 && Number.isFinite(cachedTs) && (Date.now() - cachedTs) < CACHE_TTL_MS) {
         this.versionEl.textContent = `Version: ${cachedVersion}`;
         return;
       }
