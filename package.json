@@ -1,0 +1,25 @@
+{
+  "name": "scoreboard-ocr-browser",
+  "version": "1.0.0",
+  "description": "A **local, browser-based OCR tool** designed to run on mobile devices.   Point your phone's back camera at a real scoreboard, draw masks over the score and time areas, and the app will continuously read those values using [Tesseract.js](https://github.com/naptha/tesseract.js).",
+  "main": "app.js",
+  "scripts": {
+    "test": "jest --verbose"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rafaelzacarias/Scoreboard-OCR-browser.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/rafaelzacarias/Scoreboard-OCR-browser/issues"
+  },
+  "homepage": "https://github.com/rafaelzacarias/Scoreboard-OCR-browser#readme",
+  "devDependencies": {
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0"
+  }
+}
