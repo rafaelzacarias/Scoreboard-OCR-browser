@@ -30,6 +30,8 @@ const MIN_MASK_PX = 20;
 const OCR_INTERVAL_MS = 1200;
 // Scale factor applied before feeding image to Tesseract (bigger = more accurate)
 const OCR_SCALE = 3;
+const SHORT_SHA_LENGTH = 7;
+const VERSION_FETCH_TIMEOUT_MS = 8000;
 
 /* ─── Helpers (iOS / cross-browser compat) ───────────────── */
 
@@ -87,6 +89,7 @@ class ScoreboardOCR {
     this.maskInstr    = document.getElementById('mask-instruction');
     this.maskInstrTxt = document.getElementById('mask-instruction-text');
     this.btnCancelMask = document.getElementById('btn-cancel-mask');
+    this.versionEl    = document.getElementById('version-text');
 
     this.scoreValueEl   = document.getElementById('score-value');
     this.timeValueEl    = document.getElementById('time-value');
@@ -109,6 +112,7 @@ class ScoreboardOCR {
     this.animFrameId    = null;
 
     this._initEvents();
+    this._initVersion();
   }
 
   /* ── Event wiring ─────────────────────────────────────────── */
@@ -515,6 +519,71 @@ class ScoreboardOCR {
   /* ── Status helper ────────────────────────────────────────── */
   _setStatus(msg) {
     this.statusEl.textContent = msg;
+  }
+
+  async _initVersion() {
+    if (!this.versionEl) return;
+    const FALLBACK = 'unknown';
+    const CACHE_KEY = 'scoreboard_ocr_version';
+    const CACHE_TS_KEY = 'scoreboard_ocr_version_ts';
+    const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+    try {
+      const cachedVersion = localStorage.getItem(CACHE_KEY);
+      const cachedTs = Number(localStorage.getItem(CACHE_TS_KEY) || 0);
+      if (cachedVersion && cachedTs > 0 && Number.isFinite(cachedTs) && (Date.now() - cachedTs) < CACHE_TTL_MS) {
+        this.versionEl.textContent = `Version: ${cachedVersion}`;
+        return;
+      }
+    } catch (_) { /* localStorage unavailable; continue without cache */ }
+
+    const hostMatch = window.location.hostname.match(/^([^.]+)\.github\.io$/i);
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    let owner = hostMatch?.[1] || null;
+    let repo = pathParts[0] || (owner ? `${owner}.github.io` : null);
+    if (!owner || !repo) {
+      const configuredRepo = document.documentElement.dataset.repo || '';
+      const [cfgOwner, cfgRepo] = configuredRepo.split('/');
+      if (cfgOwner && cfgRepo) {
+        owner = cfgOwner;
+        repo = cfgRepo;
+      }
+    }
+    if (!owner || !repo) {
+      this.versionEl.textContent = `Version: ${FALLBACK}`;
+      return;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), VERSION_FETCH_TIMEOUT_MS);
+      let response;
+      try {
+        response = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=1`, {
+          headers: { Accept: 'application/vnd.github+json' },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      if (response.status === 403) {
+        this.versionEl.textContent = `Version: ${FALLBACK}`;
+        return;
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const latestCommit = (Array.isArray(data) && data.length > 0) ? data[0] : null;
+      const rawSha = latestCommit?.sha ? String(latestCommit.sha) : '';
+      const sha = rawSha ? rawSha.slice(0, SHORT_SHA_LENGTH) : FALLBACK;
+      this.versionEl.textContent = `Version: ${sha}`;
+      if (sha !== FALLBACK) {
+        try {
+          localStorage.setItem(CACHE_KEY, sha);
+          localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+        } catch (_) { /* ignore localStorage write failures */ }
+      }
+    } catch (_) {
+      this.versionEl.textContent = `Version: ${FALLBACK}`;
+    }
   }
 }
 
