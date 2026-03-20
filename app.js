@@ -39,7 +39,7 @@ const OCR_SCALE = 3;
  */
 function _createCanvas(w, h) {
   // Prefer OffscreenCanvas when fully supported (Android Chrome, desktop)
-  // Fall back to a regular <canvas> (works everywhere, no DOM insertion needed)
+  // Fall back to a detached <canvas> element (works everywhere)
   if (typeof OffscreenCanvas !== 'undefined') {
     try {
       const oc = new OffscreenCanvas(w, h);
