@@ -33,8 +33,12 @@ const OCR_SCALE = 3;
 const SHORT_SHA_LENGTH = 7;
 const VERSION_FETCH_TIMEOUT_MS = 8000;
 // Retry attempts when the OCR worker fails to initialise
-const WORKER_MAX_RETRIES = 2;
+const WORKER_MAX_RETRIES = 3;
 const WORKER_RETRY_DELAY_MS = 500;
+// Delay before retrying setParameters on the same worker (covers Tesseract.js
+// v4 race where createWorker resolves before the WASM API is ready).
+const SET_PARAMS_RETRY_DELAY_MS = 250;
+const SET_PARAMS_MAX_RETRIES = 2;
 
 /* ─── Helpers (iOS / cross-browser compat) ───────────────── */
 
@@ -110,6 +114,7 @@ class ScoreboardOCR {
     this.ocrBusy        = false;  // prevents overlapping Tesseract calls
     this.worker         = null;
     this.workerReady    = false;
+    this._initPromise   = null;   // guards against concurrent _initWorker calls
     this.ocrTimer       = null;
     this.cameraActive   = false;
     this.animFrameId    = null;
@@ -347,14 +352,31 @@ class ScoreboardOCR {
   }
 
   /* ── Tesseract worker ─────────────────────────────────────── */
+
+  /**
+   * Public entry-point. Guards against concurrent calls and delegates to
+   * _doInitWorker which contains the actual retry loop.
+   */
   async _initWorker() {
     if (this.worker) return;
+    // If another call is already in-flight, piggy-back on its promise
+    if (this._initPromise) return this._initPromise;
+    this._initPromise = this._doInitWorker();
+    try {
+      await this._initPromise;
+    } finally {
+      this._initPromise = null;
+    }
+  }
 
+  async _doInitWorker() {
     let lastErr;
     for (let attempt = 0; attempt <= WORKER_MAX_RETRIES; attempt++) {
       if (attempt > 0) {
         this._setStatus(`Retrying OCR engine (${attempt}/${WORKER_MAX_RETRIES})…`);
-        await new Promise((r) => setTimeout(r, WORKER_RETRY_DELAY_MS));
+        // Exponential backoff: 500 → 1000 → 2000 …
+        const delay = WORKER_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+        await new Promise((r) => setTimeout(r, delay));
       } else {
         this._setStatus('Loading OCR engine…');
       }
@@ -365,10 +387,13 @@ class ScoreboardOCR {
           logger: () => {},
           errorHandler: (err) => { lastWorkerError = err; },
         });
-        await w.setParameters({
-          tessedit_char_whitelist:  OCR_WHITELIST,
-          tessedit_pageseg_mode:    PSM_SINGLE_LINE,
-        });
+
+        // Tesseract.js v4 can resolve createWorker before the internal
+        // WASM API is ready, causing setParameters → SetVariable to fail.
+        // _applyWorkerParams retries the call with a short delay to cover
+        // that race.
+        await this._applyWorkerParams(w);
+
         this.worker = w;
         this.workerReady = true;
         return;                       // success – stop retrying
@@ -390,6 +415,32 @@ class ScoreboardOCR {
       : 'failed to load – check your network connection';
     this._setStatus(`OCR engine error: ${detail}`);
     this.worker = null;
+    this.workerReady = false;
+    throw lastErr;
+  }
+
+  /**
+   * Apply OCR parameters to a freshly-created worker.
+   * Retries up to SET_PARAMS_MAX_RETRIES times with a short delay to work
+   * around the Tesseract.js v4 race where the internal WASM API is still
+   * null immediately after createWorker resolves.
+   */
+  async _applyWorkerParams(w) {
+    let lastErr;
+    for (let i = 0; i <= SET_PARAMS_MAX_RETRIES; i++) {
+      try {
+        await w.setParameters({
+          tessedit_char_whitelist: OCR_WHITELIST,
+          tessedit_pageseg_mode:  PSM_SINGLE_LINE,
+        });
+        return;  // success
+      } catch (err) {
+        lastErr = err;
+        if (i < SET_PARAMS_MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, SET_PARAMS_RETRY_DELAY_MS));
+        }
+      }
+    }
     throw lastErr;
   }
 
@@ -427,7 +478,7 @@ class ScoreboardOCR {
 
   /* ── OCR processing ───────────────────────────────────────── */
   async _processFrame() {
-    if (!this.ocrRunning || this.ocrBusy || !this.cameraActive) return;
+    if (!this.ocrRunning || this.ocrBusy || !this.cameraActive || !this.worker) return;
     if (this.video.readyState < 2) return;
 
     this.ocrBusy = true;
@@ -645,3 +696,8 @@ function otsuThreshold(gray) {
 
 /* ─── Boot ───────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => new ScoreboardOCR());
+
+/* ─── Export for testing (no-op in browsers) ─────────────────── */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { ScoreboardOCR, otsuThreshold };
+}
