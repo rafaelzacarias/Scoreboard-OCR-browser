@@ -37,8 +37,8 @@ const WORKER_MAX_RETRIES = 3;
 const WORKER_RETRY_DELAY_MS = 500;
 // Delay before retrying setParameters on the same worker (covers Tesseract.js
 // v4 race where createWorker resolves before the WASM API is ready).
-const SET_PARAMS_RETRY_DELAY_MS = 250;
-const SET_PARAMS_MAX_RETRIES = 2;
+const SET_PARAMS_RETRY_DELAY_MS = 400;
+const SET_PARAMS_MAX_RETRIES = 4;
 
 /* ─── Helpers (iOS / cross-browser compat) ───────────────── */
 
