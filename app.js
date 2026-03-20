@@ -374,7 +374,7 @@ class ScoreboardOCR {
     for (let attempt = 0; attempt <= WORKER_MAX_RETRIES; attempt++) {
       if (attempt > 0) {
         this._setStatus(`Retrying OCR engine (${attempt}/${WORKER_MAX_RETRIES})…`);
-        // Exponential back-off: 500 → 1000 → 2000 …
+        // Exponential backoff: 500 → 1000 → 2000 …
         const delay = WORKER_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
         await new Promise((r) => setTimeout(r, delay));
       } else {
