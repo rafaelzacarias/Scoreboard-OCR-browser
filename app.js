@@ -87,6 +87,7 @@ class ScoreboardOCR {
     this.maskInstr    = document.getElementById('mask-instruction');
     this.maskInstrTxt = document.getElementById('mask-instruction-text');
     this.btnCancelMask = document.getElementById('btn-cancel-mask');
+    this.versionEl    = document.getElementById('version-text');
 
     this.scoreValueEl   = document.getElementById('score-value');
     this.timeValueEl    = document.getElementById('time-value');
@@ -109,6 +110,7 @@ class ScoreboardOCR {
     this.animFrameId    = null;
 
     this._initEvents();
+    this._initVersion();
   }
 
   /* ── Event wiring ─────────────────────────────────────────── */
@@ -515,6 +517,22 @@ class ScoreboardOCR {
   /* ── Status helper ────────────────────────────────────────── */
   _setStatus(msg) {
     this.statusEl.textContent = msg;
+  }
+
+  async _initVersion() {
+    if (!this.versionEl) return;
+    const FALLBACK = 'unknown';
+    try {
+      const response = await fetch('https://api.github.com/repos/rafaelzacarias/Scoreboard-OCR-browser-/commits?per_page=1', {
+        headers: { Accept: 'application/vnd.github+json' },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const sha = Array.isArray(data) && data[0]?.sha ? String(data[0].sha).slice(0, 7) : FALLBACK;
+      this.versionEl.textContent = `Version: ${sha || FALLBACK}`;
+    } catch (_) {
+      this.versionEl.textContent = `Version: ${FALLBACK}`;
+    }
   }
 }
 
