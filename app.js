@@ -357,9 +357,14 @@ class ScoreboardOCR {
       this.workerReady = true;
     } catch (err) {
       const source = err ?? lastWorkerError;
-      const detail = source?.message
-                   || (source ? String(source) : null)
-                   || 'failed to load – check your network connection';
+      const rawDetail = source?.message ?? (source != null ? String(source) : '');
+      const detail = (
+        rawDetail &&
+        rawDetail !== 'undefined' &&
+        rawDetail !== 'null'
+      )
+        ? rawDetail
+        : 'failed to load – check your network connection';
       this._setStatus(`OCR engine error: ${detail}`);
       this.worker = null;
       throw err;
