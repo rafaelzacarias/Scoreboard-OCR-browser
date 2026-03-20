@@ -522,14 +522,40 @@ class ScoreboardOCR {
   async _initVersion() {
     if (!this.versionEl) return;
     const FALLBACK = 'unknown';
+    const CACHE_KEY = 'scoreboard_ocr_version';
+    const CACHE_TS_KEY = 'scoreboard_ocr_version_ts';
+    const CACHE_TTL_MS = 60 * 60 * 1000;
     try {
-      const response = await fetch('https://api.github.com/repos/rafaelzacarias/Scoreboard-OCR-browser-/commits?per_page=1', {
+      const cachedVersion = localStorage.getItem(CACHE_KEY);
+      const cachedTs = Number(localStorage.getItem(CACHE_TS_KEY) || 0);
+      if (cachedVersion && Number.isFinite(cachedTs) && (Date.now() - cachedTs) < CACHE_TTL_MS) {
+        this.versionEl.textContent = `Version: ${cachedVersion}`;
+        return;
+      }
+    } catch (_) { /* localStorage unavailable; continue without cache */ }
+
+    const hostMatch = window.location.hostname.match(/^([^.]+)\.github\.io$/i);
+    const owner = hostMatch?.[1] || null;
+    const repo = window.location.pathname.split('/').filter(Boolean)[0] || null;
+    if (!owner || !repo) {
+      this.versionEl.textContent = `Version: ${FALLBACK}`;
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=1`, {
         headers: { Accept: 'application/vnd.github+json' },
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       const sha = Array.isArray(data) && data[0]?.sha ? String(data[0].sha).slice(0, 7) : FALLBACK;
-      this.versionEl.textContent = `Version: ${sha || FALLBACK}`;
+      this.versionEl.textContent = `Version: ${sha}`;
+      if (sha !== FALLBACK) {
+        try {
+          localStorage.setItem(CACHE_KEY, sha);
+          localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+        } catch (_) { /* ignore localStorage write failures */ }
+      }
     } catch (_) {
       this.versionEl.textContent = `Version: ${FALLBACK}`;
     }
