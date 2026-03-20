@@ -216,7 +216,16 @@ header h1 {
   background: #0d0d14;
   border-top: 1px solid #1a1a24;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   flex-shrink: 0;
+}
+
+#version-text {
+  font-size: 0.72rem;
+  color: #777;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 }
 
 /* -------------------------------------------------------
