@@ -1,0 +1,246 @@
+/* -------------------------------------------------------
+   Base reset & box model
+------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: #0a0a0f;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* -------------------------------------------------------
+   App shell
+------------------------------------------------------- */
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* -------------------------------------------------------
+   Header
+------------------------------------------------------- */
+header {
+  padding: 10px 16px 6px;
+  background: #12121a;
+  border-bottom: 1px solid #222;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+header h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: #c8e6ff;
+}
+
+/* -------------------------------------------------------
+   Camera container
+------------------------------------------------------- */
+#camera-container {
+  position: relative;
+  width: 100%;
+  /* Aspect ratio 16:9 for landscape camera */
+  aspect-ratio: 16 / 9;
+  background: #111;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#camera-feed {
+  width: 100%;
+  height: 100%;
+  object-fit: fill; /* stretch to fill – keeps mask coordinates 1:1 with video frame */
+  display: block;
+}
+
+#overlay-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* prevent scroll while drawing */
+  cursor: crosshair;
+}
+
+/* Mask-drawing instruction overlay */
+#mask-instruction {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.72);
+  font-size: 0.85rem;
+  color: #fff;
+}
+
+#mask-instruction.hidden {
+  display: none;
+}
+
+/* -------------------------------------------------------
+   Results row
+------------------------------------------------------- */
+#results {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #12121a;
+  border-top: 1px solid #1e1e2a;
+  border-bottom: 1px solid #1e1e2a;
+  flex-shrink: 0;
+}
+
+.result-card {
+  flex: 1;
+  background: #1a1a26;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.result-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.result-value {
+  font-size: 1.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+  color: #4fc3f7;
+  line-height: 1;
+  word-break: break-all;
+  text-align: center;
+}
+
+#score-card .result-value { color: #69f0ae; }
+#time-card  .result-value { color: #4fc3f7; }
+
+.preview-canvas {
+  margin-top: 6px;
+  max-width: 100%;
+  height: 40px;
+  border-radius: 4px;
+  background: #000;
+  display: none; /* shown only once OCR runs */
+}
+
+/* -------------------------------------------------------
+   Controls
+------------------------------------------------------- */
+#controls {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.control-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  white-space: nowrap;
+  background: #2a2a38;
+  color: #c8e6ff;
+}
+
+.btn:active:not(:disabled) {
+  opacity: 0.75;
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-full  { flex: 1; width: 100%; }
+.btn-half  { flex: 1; }
+.btn-sm    { padding: 6px 10px; font-size: 0.78rem; }
+
+.btn-primary { background: #1565c0; color: #fff; }
+.btn-primary.active { background: #b71c1c; }
+
+.btn-danger  { background: #4a1515; color: #ff8a80; }
+.btn-danger:not(:disabled):hover { background: #6a1515; }
+
+.btn-toggle  { background: #1a2a1a; color: #a5d6a7; }
+.btn-toggle.active { background: #1b5e20; color: #b9f6ca; }
+
+/* -------------------------------------------------------
+   Status bar
+------------------------------------------------------- */
+#status-bar {
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  color: #aaa;
+  background: #0d0d14;
+  border-top: 1px solid #1a1a24;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* -------------------------------------------------------
+   Landscape overrides for phones held sideways
+------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 500px) {
+  #camera-container {
+    aspect-ratio: unset;
+    height: 50vw;
+    max-height: 280px;
+  }
+
+  #results {
+    padding: 6px 10px;
+  }
+
+  .result-value {
+    font-size: 1.3rem;
+  }
+
+  #controls {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .btn { padding: 9px 10px; }
+}

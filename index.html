@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Scoreboard OCR</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+
+    <header>
+      <h1>📷 Scoreboard OCR</h1>
+    </header>
+
+    <!-- Camera feed + drawing overlay -->
+    <div id="camera-container">
+      <video id="camera-feed" autoplay playsinline muted></video>
+      <canvas id="overlay-canvas"></canvas>
+      <div id="mask-instruction" class="hidden">
+        <span id="mask-instruction-text"></span>
+        <button id="btn-cancel-mask" class="btn btn-sm">Cancel</button>
+      </div>
+    </div>
+
+    <!-- OCR results -->
+    <div id="results">
+      <div class="result-card" id="score-card">
+        <div class="result-label">SCORE</div>
+        <div class="result-value" id="score-value">--</div>
+        <canvas id="score-preview" class="preview-canvas"></canvas>
+      </div>
+      <div class="result-card" id="time-card">
+        <div class="result-label">TIME</div>
+        <div class="result-value" id="time-value">--</div>
+        <canvas id="time-preview" class="preview-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+      <div class="control-row">
+        <button id="btn-camera" class="btn btn-full">📷 Start Camera</button>
+      </div>
+      <div class="control-row">
+        <button id="btn-mask-score" class="btn btn-half" disabled>🎯 Set Score Mask</button>
+        <button id="btn-mask-time"  class="btn btn-half" disabled>⏱ Set Time Mask</button>
+      </div>
+      <div class="control-row">
+        <button id="btn-clear-masks" class="btn btn-half btn-danger" disabled>🗑 Clear Masks</button>
+        <button id="btn-invert"      class="btn btn-half btn-toggle">🔄 Invert Colors</button>
+      </div>
+      <div class="control-row">
+        <button id="btn-ocr" class="btn btn-full btn-primary" disabled>▶ Start OCR</button>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar">
+      <span id="status-text">Tap "Start Camera" to begin.</span>
+    </div>
+
+  </div>
+
+  <!-- Tesseract.js loaded from CDN; all OCR runs locally in the browser -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
