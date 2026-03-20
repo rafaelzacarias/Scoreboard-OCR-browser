@@ -31,6 +31,44 @@ const OCR_INTERVAL_MS = 1200;
 // Scale factor applied before feeding image to Tesseract (bigger = more accurate)
 const OCR_SCALE = 3;
 
+/* ─── Helpers (iOS / cross-browser compat) ───────────────── */
+
+/**
+ * Create an off-DOM canvas that works on every browser, including
+ * older iOS WebKit builds where OffscreenCanvas is absent or buggy.
+ */
+function _createCanvas(w, h) {
+  // Prefer OffscreenCanvas when fully supported (Android Chrome, desktop)
+  // Fall back to a regular <canvas> (works everywhere, no DOM insertion needed)
+  if (typeof OffscreenCanvas !== 'undefined') {
+    try {
+      const oc = new OffscreenCanvas(w, h);
+      // Ensure convertToBlob is available (Safari 17+), otherwise fall back
+      if (typeof oc.convertToBlob === 'function') return oc;
+    } catch (_) { /* fall through */ }
+  }
+  const c = document.createElement('canvas');
+  c.width  = w;
+  c.height = h;
+  return c;
+}
+
+/**
+ * Convert a canvas (OffscreenCanvas or regular HTMLCanvasElement) to a PNG Blob.
+ */
+function _canvasToBlob(canvas) {
+  if (typeof canvas.convertToBlob === 'function') {
+    return canvas.convertToBlob({ type: 'image/png' });
+  }
+  // Regular HTMLCanvasElement – callback-based toBlob
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('toBlob failed'))),
+      'image/png',
+    );
+  });
+}
+
 /* ─── ScoreboardOCR class ────────────────────────────────────── */
 class ScoreboardOCR {
   constructor() {
@@ -124,7 +162,7 @@ class ScoreboardOCR {
       this.btnClear.disabled          = false;
       this._setStatus('Camera active. Draw masks over the SCORE and TIME areas.');
     } catch (err) {
-      this._setStatus(`Camera error: ${err.message}`);
+      this._setStatus(`Camera error: ${err?.message || String(err)}`);
       console.error('Camera error:', err);
     }
   }
@@ -306,7 +344,7 @@ class ScoreboardOCR {
     if (this.worker) return;
     this._setStatus('Loading OCR engine…');
     try {
-      this.worker = await Tesseract.createWorker('eng', {
+      this.worker = await Tesseract.createWorker('eng', 1, {
         // suppress noisy logger; remove to see progress logs
         logger: () => {},
       });
@@ -316,7 +354,7 @@ class ScoreboardOCR {
       });
       this.workerReady = true;
     } catch (err) {
-      this._setStatus(`OCR engine error: ${err.message}`);
+      this._setStatus(`OCR engine error: ${err?.message || String(err)}`);
       this.worker = null;
       throw err;
     }
@@ -366,7 +404,7 @@ class ScoreboardOCR {
       const vh = this.video.videoHeight;
       if (!vw || !vh) return;
 
-      const frame = new OffscreenCanvas(vw, vh);
+      const frame = _createCanvas(vw, vh);
       const fctx  = frame.getContext('2d');
       fctx.drawImage(this.video, 0, 0, vw, vh);
 
@@ -392,7 +430,7 @@ class ScoreboardOCR {
     /* Upscale crop for Tesseract */
     const rw = sw * OCR_SCALE;
     const rh = sh * OCR_SCALE;
-    const regionCanvas = new OffscreenCanvas(rw, rh);
+    const regionCanvas = _createCanvas(rw, rh);
     const rctx = regionCanvas.getContext('2d');
     rctx.imageSmoothingEnabled = false;
     rctx.drawImage(frame, sx, sy, sw, sh, 0, 0, rw, rh);
@@ -405,7 +443,7 @@ class ScoreboardOCR {
 
     /* Run Tesseract */
     try {
-      const blob = await regionCanvas.convertToBlob({ type: 'image/png' });
+      const blob = await _canvasToBlob(regionCanvas);
       const { data: { text } } = await this.worker.recognize(blob);
       const clean = text.replace(/[^0-9:.\-/ ]/g, '').trim();
       if (type === 'score') this.scoreValueEl.textContent = clean || '--';

@@ -1,6 +1,6 @@
 # Scoreboard OCR — browser edition
 
-A **local, browser-based OCR tool** designed to run on Android devices.  
+A **local, browser-based OCR tool** designed to run on mobile devices.  
 Point your phone's back camera at a real scoreboard, draw masks over the score and time areas, and the app will continuously read those values using [Tesseract.js](https://github.com/naptha/tesseract.js).
 
 ---
@@ -69,6 +69,7 @@ For Android access, use the HTTPS tunnel feature or your LAN IP with HTTPS.
 |---|---|---|
 | Chrome for Android 90+ | ✅ | ✅ |
 | Firefox for Android 90+ | ✅ | ✅ |
+| Chrome for iOS 90+ | ✅ | ✅ |
 | Safari iOS 14.5+ | ✅ | ✅ |
 | Desktop Chrome / Firefox | ✅ (uses webcam) | ✅ |
 
