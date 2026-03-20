@@ -32,6 +32,9 @@ const OCR_INTERVAL_MS = 1200;
 const OCR_SCALE = 3;
 const SHORT_SHA_LENGTH = 7;
 const VERSION_FETCH_TIMEOUT_MS = 8000;
+// Retry attempts when the OCR worker fails to initialise
+const WORKER_MAX_RETRIES = 2;
+const WORKER_RETRY_DELAY_MS = 500;
 
 /* ─── Helpers (iOS / cross-browser compat) ───────────────── */
 
@@ -346,33 +349,48 @@ class ScoreboardOCR {
   /* ── Tesseract worker ─────────────────────────────────────── */
   async _initWorker() {
     if (this.worker) return;
-    this._setStatus('Loading OCR engine…');
-    let lastWorkerError = null;
-    try {
-      this.worker = await Tesseract.createWorker('eng', 1, {
-        // suppress noisy logger; remove to see progress logs
-        logger: () => {},
-        errorHandler: (err) => { lastWorkerError = err; },
-      });
-      await this.worker.setParameters({
-        tessedit_char_whitelist:  OCR_WHITELIST,
-        tessedit_pageseg_mode:    PSM_SINGLE_LINE,
-      });
-      this.workerReady = true;
-    } catch (err) {
-      const source = err ?? lastWorkerError;
-      const rawDetail = source?.message ?? (source != null ? String(source) : '');
-      const detail = (
-        rawDetail &&
-        rawDetail !== 'undefined' &&
-        rawDetail !== 'null'
-      )
-        ? rawDetail
-        : 'failed to load – check your network connection';
-      this._setStatus(`OCR engine error: ${detail}`);
-      this.worker = null;
-      throw err;
+
+    let lastErr;
+    for (let attempt = 0; attempt <= WORKER_MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        this._setStatus(`Retrying OCR engine (${attempt}/${WORKER_MAX_RETRIES})…`);
+        await new Promise((r) => setTimeout(r, WORKER_RETRY_DELAY_MS));
+      } else {
+        this._setStatus('Loading OCR engine…');
+      }
+      let w = null;
+      let lastWorkerError = null;
+      try {
+        w = await Tesseract.createWorker('eng', 1, {
+          logger: () => {},
+          errorHandler: (err) => { lastWorkerError = err; },
+        });
+        await w.setParameters({
+          tessedit_char_whitelist:  OCR_WHITELIST,
+          tessedit_pageseg_mode:    PSM_SINGLE_LINE,
+        });
+        this.worker = w;
+        this.workerReady = true;
+        return;                       // success – stop retrying
+      } catch (err) {
+        lastErr = err ?? lastWorkerError;
+        // Terminate the broken worker so it doesn't leak
+        try { if (w) await w.terminate(); } catch (_) { /* ignore */ }
+      }
     }
+
+    // All attempts failed – surface a friendly message
+    const rawDetail = lastErr?.message ?? (lastErr != null ? String(lastErr) : '');
+    const detail = (
+      rawDetail &&
+      rawDetail !== 'undefined' &&
+      rawDetail !== 'null'
+    )
+      ? rawDetail
+      : 'failed to load – check your network connection';
+    this._setStatus(`OCR engine error: ${detail}`);
+    this.worker = null;
+    throw lastErr;
   }
 
   /* ── OCR toggle ───────────────────────────────────────────── */
