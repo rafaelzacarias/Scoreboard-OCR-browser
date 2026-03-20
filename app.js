@@ -30,6 +30,7 @@ const MIN_MASK_PX = 20;
 const OCR_INTERVAL_MS = 1200;
 // Scale factor applied before feeding image to Tesseract (bigger = more accurate)
 const OCR_SCALE = 3;
+const SHORT_SHA_LENGTH = 7;
 
 /* ─── Helpers (iOS / cross-browser compat) ───────────────── */
 
@@ -524,7 +525,7 @@ class ScoreboardOCR {
     const FALLBACK = 'unknown';
     const CACHE_KEY = 'scoreboard_ocr_version';
     const CACHE_TS_KEY = 'scoreboard_ocr_version_ts';
-    const CACHE_TTL_MS = 60 * 60 * 1000;
+    const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
     try {
       const cachedVersion = localStorage.getItem(CACHE_KEY);
       const cachedTs = Number(localStorage.getItem(CACHE_TS_KEY) || 0);
@@ -536,7 +537,8 @@ class ScoreboardOCR {
 
     const hostMatch = window.location.hostname.match(/^([^.]+)\.github\.io$/i);
     const owner = hostMatch?.[1] || null;
-    const repo = window.location.pathname.split('/').filter(Boolean)[0] || null;
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const repo = pathParts[0] || (owner ? `${owner}.github.io` : null);
     if (!owner || !repo) {
       this.versionEl.textContent = `Version: ${FALLBACK}`;
       return;
@@ -546,9 +548,13 @@ class ScoreboardOCR {
       const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=1`, {
         headers: { Accept: 'application/vnd.github+json' },
       });
+      if (response.status === 403) {
+        this.versionEl.textContent = 'Version: rate-limited';
+        return;
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      const sha = Array.isArray(data) && data[0]?.sha ? String(data[0].sha).slice(0, 7) : FALLBACK;
+      const sha = Array.isArray(data) && data[0]?.sha ? String(data[0].sha).slice(0, SHORT_SHA_LENGTH) : FALLBACK;
       this.versionEl.textContent = `Version: ${sha}`;
       if (sha !== FALLBACK) {
         try {
