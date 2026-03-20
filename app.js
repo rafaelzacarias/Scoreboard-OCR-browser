@@ -343,10 +343,12 @@ class ScoreboardOCR {
   async _initWorker() {
     if (this.worker) return;
     this._setStatus('Loading OCR engine…');
+    let lastWorkerError = null;
     try {
       this.worker = await Tesseract.createWorker('eng', 1, {
         // suppress noisy logger; remove to see progress logs
         logger: () => {},
+        errorHandler: (err) => { lastWorkerError = err; },
       });
       await this.worker.setParameters({
         tessedit_char_whitelist:  OCR_WHITELIST,
@@ -354,7 +356,11 @@ class ScoreboardOCR {
       });
       this.workerReady = true;
     } catch (err) {
-      this._setStatus(`OCR engine error: ${err?.message || String(err)}`);
+      const source = err ?? lastWorkerError;
+      const detail = source?.message
+                   || (source ? String(source) : null)
+                   || 'failed to load – check your network connection';
+      this._setStatus(`OCR engine error: ${detail}`);
       this.worker = null;
       throw err;
     }
