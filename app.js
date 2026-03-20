@@ -545,16 +545,26 @@ class ScoreboardOCR {
     }
 
     try {
-      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=1`, {
-        headers: { Accept: 'application/vnd.github+json' },
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      let response;
+      try {
+        response = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=1`, {
+          headers: { Accept: 'application/vnd.github+json' },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
       if (response.status === 403) {
         this.versionEl.textContent = 'Version: rate-limited';
         return;
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      const sha = Array.isArray(data) && data[0]?.sha ? String(data[0].sha).slice(0, SHORT_SHA_LENGTH) : FALLBACK;
+      const latestCommit = Array.isArray(data) ? data[0] : null;
+      const rawSha = latestCommit?.sha ? String(latestCommit.sha) : '';
+      const sha = rawSha ? rawSha.slice(0, SHORT_SHA_LENGTH) : FALLBACK;
       this.versionEl.textContent = `Version: ${sha}`;
       if (sha !== FALLBACK) {
         try {
