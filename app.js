@@ -31,6 +31,7 @@ const OCR_INTERVAL_MS = 1200;
 // Scale factor applied before feeding image to Tesseract (bigger = more accurate)
 const OCR_SCALE = 3;
 const SHORT_SHA_LENGTH = 7;
+const VERSION_FETCH_TIMEOUT_MS = 8000;
 
 /* ─── Helpers (iOS / cross-browser compat) ───────────────── */
 
@@ -536,9 +537,17 @@ class ScoreboardOCR {
     } catch (_) { /* localStorage unavailable; continue without cache */ }
 
     const hostMatch = window.location.hostname.match(/^([^.]+)\.github\.io$/i);
-    const owner = hostMatch?.[1] || null;
     const pathParts = window.location.pathname.split('/').filter(Boolean);
-    const repo = pathParts[0] || (owner ? `${owner}.github.io` : null);
+    let owner = hostMatch?.[1] || null;
+    let repo = pathParts[0] || (owner ? `${owner}.github.io` : null);
+    if (!owner || !repo) {
+      const configuredRepo = document.documentElement.dataset.repo || '';
+      const [cfgOwner, cfgRepo] = configuredRepo.split('/');
+      if (cfgOwner && cfgRepo) {
+        owner = cfgOwner;
+        repo = cfgRepo;
+      }
+    }
     if (!owner || !repo) {
       this.versionEl.textContent = `Version: ${FALLBACK}`;
       return;
@@ -546,7 +555,7 @@ class ScoreboardOCR {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), VERSION_FETCH_TIMEOUT_MS);
       let response;
       try {
         response = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=1`, {
@@ -557,7 +566,7 @@ class ScoreboardOCR {
         clearTimeout(timeoutId);
       }
       if (response.status === 403) {
-        this.versionEl.textContent = 'Version: rate-limited';
+        this.versionEl.textContent = `Version: ${FALLBACK}`;
         return;
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
