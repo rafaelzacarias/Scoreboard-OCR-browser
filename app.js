@@ -114,6 +114,7 @@ class ScoreboardOCR {
     this.ocrBusy        = false;  // prevents overlapping Tesseract calls
     this.worker         = null;
     this.workerReady    = false;
+    this._paramsApplied = false;  // true once setParameters succeeds
     this._initPromise   = null;   // guards against concurrent _initWorker calls
     this.ocrTimer       = null;
     this.cameraActive   = false;
@@ -424,6 +425,14 @@ class ScoreboardOCR {
    * Retries up to SET_PARAMS_MAX_RETRIES times with a short delay to work
    * around the Tesseract.js v4 race where the internal WASM API is still
    * null immediately after createWorker resolves.
+   *
+   * Between retries we call reinitialize() to force the WASM API into a
+   * ready state (passive waiting is not always enough).
+   *
+   * If all retries fail we do NOT throw – the worker is still usable and
+   * parameters will be retried lazily before each recognize() call. The
+   * regex cleanup in _recognise already strips non-digit characters, so
+   * missing the whitelist is acceptable.
    */
   async _applyWorkerParams(w) {
     let lastErr;
@@ -433,15 +442,37 @@ class ScoreboardOCR {
           tessedit_char_whitelist: OCR_WHITELIST,
           tessedit_pageseg_mode:  PSM_SINGLE_LINE,
         });
+        this._paramsApplied = true;
         return;  // success
       } catch (err) {
         lastErr = err;
         if (i < SET_PARAMS_MAX_RETRIES) {
+          // Force reinitialize to kick the WASM API into a ready state
+          // rather than just waiting passively.
+          try { await w.reinitialize('eng', 1); } catch (_) { /* ignore */ }
           await new Promise((r) => setTimeout(r, SET_PARAMS_RETRY_DELAY_MS));
         }
       }
     }
-    throw lastErr;
+    // Soft-fail: log a warning but let the worker be used without
+    // the character whitelist.  _ensureParams will retry lazily.
+    console.warn('setParameters failed after retries – OCR will run without character whitelist', lastErr);
+    this._paramsApplied = false;
+  }
+
+  /**
+   * Lazily attempt to apply parameters before a recognize() call
+   * if they were not successfully set during initialisation.
+   */
+  async _ensureParams() {
+    if (this._paramsApplied || !this.worker) return;
+    try {
+      await this.worker.setParameters({
+        tessedit_char_whitelist: OCR_WHITELIST,
+        tessedit_pageseg_mode:  PSM_SINGLE_LINE,
+      });
+      this._paramsApplied = true;
+    } catch (_) { /* still OK – regex cleanup covers it */ }
   }
 
   /* ── OCR toggle ───────────────────────────────────────────── */
@@ -527,6 +558,7 @@ class ScoreboardOCR {
 
     /* Run Tesseract */
     try {
+      await this._ensureParams();
       const blob = await _canvasToBlob(regionCanvas);
       const { data: { text } } = await this.worker.recognize(blob);
       const clean = text.replace(/[^0-9:.\-/ ]/g, '').trim();
