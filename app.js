@@ -103,6 +103,13 @@ class ScoreboardOCR {
     this.scorePreview   = document.getElementById('score-preview');
     this.timePreview    = document.getElementById('time-preview');
 
+    /* Source picker */
+    this.sourceModal    = document.getElementById('source-modal');
+    this.btnSourceCam   = document.getElementById('btn-source-camera');
+    this.btnSourceFile  = document.getElementById('btn-source-file');
+    this.btnSourceCancel= document.getElementById('btn-source-cancel');
+    this.fileInput      = document.getElementById('file-input');
+
     /* State */
     this.masks          = { score: null, time: null };  // relative coords
     this.currentMask    = null;   // 'score' | 'time' | null
@@ -126,13 +133,19 @@ class ScoreboardOCR {
 
   /* ── Event wiring ─────────────────────────────────────────── */
   _initEvents() {
-    this.btnCamera.addEventListener('click',    () => this._startCamera());
+    this.btnCamera.addEventListener('click',    () => this._showSourcePicker());
     this.btnMaskScore.addEventListener('click', () => this._beginMask('score'));
     this.btnMaskTime.addEventListener('click',  () => this._beginMask('time'));
     this.btnClear.addEventListener('click',     () => this._clearMasks());
     this.btnInvert.addEventListener('click',    () => this._toggleInvert());
     this.btnOcr.addEventListener('click',       () => this._toggleOCR());
     this.btnCancelMask.addEventListener('click',() => this._cancelMask());
+
+    /* Source picker */
+    if (this.btnSourceCam)    this.btnSourceCam.addEventListener('click',    () => { this._hideSourcePicker(); this._startCamera(); });
+    if (this.btnSourceFile)   this.btnSourceFile.addEventListener('click',   () => { this._hideSourcePicker(); this.fileInput.click(); });
+    if (this.btnSourceCancel) this.btnSourceCancel.addEventListener('click', () => this._hideSourcePicker());
+    if (this.fileInput)       this.fileInput.addEventListener('change',      (e) => this._loadVideoFile(e));
 
     /* Pointer events – works for touch and mouse */
     this.canvas.addEventListener('pointerdown', (e) => this._onPointerDown(e));
@@ -141,6 +154,15 @@ class ScoreboardOCR {
     this.canvas.addEventListener('pointercancel',(e)=> this._cancelMask());
 
     window.addEventListener('resize',            () => this._resizeCanvas());
+  }
+
+  /* ── Source picker ─────────────────────────────────────────── */
+  _showSourcePicker() {
+    if (this.sourceModal) this.sourceModal.classList.remove('hidden');
+  }
+
+  _hideSourcePicker() {
+    if (this.sourceModal) this.sourceModal.classList.add('hidden');
   }
 
   /* ── Camera ───────────────────────────────────────────────── */
@@ -168,16 +190,55 @@ class ScoreboardOCR {
       this._resizeCanvas();
       this._startRenderLoop();
 
-      this.btnCamera.textContent      = '📷 Camera Active';
-      this.btnCamera.disabled         = true;
-      this.btnMaskScore.disabled      = false;
-      this.btnMaskTime.disabled       = false;
-      this.btnClear.disabled          = false;
-      this._setStatus('Camera active. Draw masks over the SCORE and TIME areas.');
+      this._activateSource('📷 Camera Active');
     } catch (err) {
       this._setStatus(`Camera error: ${err?.message || String(err)}`);
       console.error('Camera error:', err);
     }
+  }
+
+  /* ── Video file ────────────────────────────────────────────── */
+  _loadVideoFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    this._setStatus('Loading video file…');
+
+    // Stop any existing camera stream
+    if (this.video.srcObject) {
+      for (const track of this.video.srcObject.getTracks()) track.stop();
+      this.video.srcObject = null;
+    }
+
+    const url = URL.createObjectURL(file);
+    this.video.src = url;
+    this.video.loop = true;
+    this.video.muted = true;
+
+    this.video.onloadedmetadata = () => {
+      this.video.play();
+      this.cameraActive = true;
+      this._resizeCanvas();
+      this._startRenderLoop();
+      this._activateSource(`📁 ${file.name}`);
+    };
+
+    this.video.onerror = () => {
+      URL.revokeObjectURL(url);
+      this._setStatus('Error loading video file.');
+    };
+
+    // Reset input so the same file can be re-selected
+    this.fileInput.value = '';
+  }
+
+  /* ── Shared post-source-activation ─────────────────────────── */
+  _activateSource(label) {
+    this.btnCamera.textContent      = label;
+    this.btnCamera.disabled         = false;
+    this.btnMaskScore.disabled      = false;
+    this.btnMaskTime.disabled       = false;
+    this.btnClear.disabled          = false;
+    this._setStatus('Source active. Draw masks over the SCORE and TIME areas.');
   }
 
   /* ── Canvas resize ────────────────────────────────────────── */

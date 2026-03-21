@@ -15,6 +15,12 @@ beforeAll(() => {
     <div id="time-value">--</div>
     <canvas id="score-preview"></canvas>
     <canvas id="time-preview"></canvas>
+    <div id="source-modal" class="hidden">
+      <button id="btn-source-camera"></button>
+      <button id="btn-source-file"></button>
+      <button id="btn-source-cancel"></button>
+    </div>
+    <input type="file" id="file-input" class="hidden" />
     <button id="btn-camera"></button>
     <button id="btn-mask-score" disabled></button>
     <button id="btn-mask-time" disabled></button>

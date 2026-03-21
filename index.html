@@ -40,10 +40,21 @@
       </div>
     </div>
 
+    <!-- Source picker modal -->
+    <div id="source-modal" class="modal-overlay hidden">
+      <div class="modal-box">
+        <h2>Select Video Source</h2>
+        <button id="btn-source-camera" class="btn btn-full btn-source">📷 Use Camera</button>
+        <button id="btn-source-file"   class="btn btn-full btn-source">📁 Select Video File</button>
+        <button id="btn-source-cancel" class="btn btn-full btn-sm">Cancel</button>
+      </div>
+    </div>
+    <input type="file" id="file-input" accept="video/*" class="hidden" />
+
     <!-- Controls -->
     <div id="controls">
       <div class="control-row">
-        <button id="btn-camera" class="btn btn-full">📷 Start Camera</button>
+        <button id="btn-camera" class="btn btn-full">📷 Select Source</button>
       </div>
       <div class="control-row">
         <button id="btn-mask-score" class="btn btn-half" disabled>🎯 Set Score Mask</button>

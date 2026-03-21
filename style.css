@@ -253,3 +253,57 @@ header h1 {
 
   .btn { padding: 9px 10px; }
 }
+
+/* -------------------------------------------------------
+   Source picker modal
+------------------------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal-box {
+  background: #1a1a26;
+  border: 1px solid #333;
+  border-radius: 14px;
+  padding: 24px 20px;
+  width: 90%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+}
+
+.modal-box h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #c8e6ff;
+  margin-bottom: 4px;
+}
+
+.btn-source {
+  background: #1565c0;
+  color: #fff;
+  font-size: 1rem;
+  padding: 14px;
+}
+
+.btn-source:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+#file-input.hidden {
+  display: none;
+}
