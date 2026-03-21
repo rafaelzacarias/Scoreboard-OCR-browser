@@ -7,14 +7,17 @@ beforeAll(() => {
   document.body.innerHTML = `
     <video id="camera-feed"></video>
     <canvas id="overlay-canvas"></canvas>
+    <div id="camera-container"></div>
     <div id="mask-instruction" class="hidden">
       <span id="mask-instruction-text"></span>
       <button id="btn-cancel-mask"></button>
     </div>
-    <div id="score-value">--</div>
+    <div id="home-value">--</div>
     <div id="time-value">--</div>
-    <canvas id="score-preview"></canvas>
+    <div id="away-value">--</div>
+    <canvas id="home-preview"></canvas>
     <canvas id="time-preview"></canvas>
+    <canvas id="away-preview"></canvas>
     <div id="source-modal" class="hidden">
       <button id="btn-source-camera"></button>
       <button id="btn-source-file"></button>
@@ -22,8 +25,9 @@ beforeAll(() => {
     </div>
     <input type="file" id="file-input" class="hidden" />
     <button id="btn-camera"></button>
-    <button id="btn-mask-score" disabled></button>
+    <button id="btn-mask-home" disabled></button>
     <button id="btn-mask-time" disabled></button>
+    <button id="btn-mask-away" disabled></button>
     <button id="btn-clear-masks" disabled></button>
     <button id="btn-invert"></button>
     <button id="btn-ocr" disabled></button>

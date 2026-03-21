@@ -14,8 +14,8 @@
  */
 
 /* ─── Constants ──────────────────────────────────────────────── */
-const MASK_COLORS = { score: '#69f0ae', time: '#4fc3f7' };
-const MASK_LABELS = { score: 'SCORE', time: 'TIME' };
+const MASK_COLORS = { home: '#69f0ae', time: '#4fc3f7', away: '#ff8a80' };
+const MASK_LABELS = { home: 'HOME', time: 'TIME', away: 'AWAY' };
 // Characters expected on a scoreboard
 const OCR_WHITELIST = '0123456789:.-/ ';
 // Tesseract page-segmentation mode 7 = SINGLE_LINE (best for scoreboard regions)
@@ -83,8 +83,9 @@ class ScoreboardOCR {
     this.ctx          = this.canvas.getContext('2d');
 
     this.btnCamera    = document.getElementById('btn-camera');
-    this.btnMaskScore = document.getElementById('btn-mask-score');
+    this.btnMaskHome  = document.getElementById('btn-mask-home');
     this.btnMaskTime  = document.getElementById('btn-mask-time');
+    this.btnMaskAway  = document.getElementById('btn-mask-away');
     this.btnClear     = document.getElementById('btn-clear-masks');
     this.btnInvert    = document.getElementById('btn-invert');
     this.btnOcr       = document.getElementById('btn-ocr');
@@ -94,10 +95,13 @@ class ScoreboardOCR {
     this.btnCancelMask = document.getElementById('btn-cancel-mask');
     this.versionEl    = document.getElementById('version-text');
 
-    this.scoreValueEl   = document.getElementById('score-value');
+    this.homeValueEl    = document.getElementById('home-value');
     this.timeValueEl    = document.getElementById('time-value');
-    this.scorePreview   = document.getElementById('score-preview');
+    this.awayValueEl    = document.getElementById('away-value');
+    this.homePreview    = document.getElementById('home-preview');
     this.timePreview    = document.getElementById('time-preview');
+    this.awayPreview    = document.getElementById('away-preview');
+    this.cameraContainer = document.getElementById('camera-container');
 
     /* Source picker */
     this.sourceModal    = document.getElementById('source-modal');
@@ -107,8 +111,8 @@ class ScoreboardOCR {
     this.fileInput      = document.getElementById('file-input');
 
     /* State */
-    this.masks          = { score: null, time: null };  // relative coords
-    this.currentMask    = null;   // 'score' | 'time' | null
+    this.masks          = { home: null, time: null, away: null };  // relative coords
+    this.currentMask    = null;   // 'home' | 'time' | 'away' | null
     this.drawing        = false;
     this.drawStart      = null;
     this.drawCurrent    = null;
@@ -130,8 +134,9 @@ class ScoreboardOCR {
   /* ── Event wiring ─────────────────────────────────────────── */
   _initEvents() {
     this.btnCamera.addEventListener('click',    () => this._showSourcePicker());
-    this.btnMaskScore.addEventListener('click', () => this._beginMask('score'));
-    this.btnMaskTime.addEventListener('click',  () => this._beginMask('time'));
+    this.btnMaskHome?.addEventListener('click',  () => this._beginMask('home'));
+    this.btnMaskTime?.addEventListener('click',  () => this._beginMask('time'));
+    this.btnMaskAway?.addEventListener('click',  () => this._beginMask('away'));
     this.btnClear.addEventListener('click',     () => this._clearMasks());
     this.btnInvert.addEventListener('click',    () => this._toggleInvert());
     this.btnOcr.addEventListener('click',       () => this._toggleOCR());
@@ -183,7 +188,7 @@ class ScoreboardOCR {
       });
 
       this.cameraActive = true;
-      this._resizeCanvas();
+      this._updateAspectRatio();
       this._startRenderLoop();
 
       this._activateSource('📷 Camera Active');
@@ -213,7 +218,7 @@ class ScoreboardOCR {
     this.video.onloadedmetadata = () => {
       this.video.play();
       this.cameraActive = true;
-      this._resizeCanvas();
+      this._updateAspectRatio();
       this._startRenderLoop();
       this._activateSource(`📁 ${file.name}`);
     };
@@ -231,10 +236,11 @@ class ScoreboardOCR {
   _activateSource(label) {
     this.btnCamera.textContent      = label;
     this.btnCamera.disabled         = false;
-    this.btnMaskScore.disabled      = false;
-    this.btnMaskTime.disabled       = false;
+    if (this.btnMaskHome) this.btnMaskHome.disabled = false;
+    if (this.btnMaskTime) this.btnMaskTime.disabled = false;
+    if (this.btnMaskAway) this.btnMaskAway.disabled = false;
     this.btnClear.disabled          = false;
-    this._setStatus('Source active. Draw masks over the SCORE and TIME areas.');
+    this._setStatus('Source active. Draw masks over the HOME, TIME, and AWAY areas.');
   }
 
   /* ── Canvas resize ────────────────────────────────────────── */
@@ -242,6 +248,16 @@ class ScoreboardOCR {
     const rect = this.canvas.parentElement.getBoundingClientRect();
     this.canvas.width  = Math.round(rect.width);
     this.canvas.height = Math.round(rect.height);
+  }
+
+  /** Update container aspect-ratio to match the video's native dimensions */
+  _updateAspectRatio() {
+    const vw = this.video.videoWidth;
+    const vh = this.video.videoHeight;
+    if (vw && vh && this.cameraContainer) {
+      this.cameraContainer.style.aspectRatio = `${vw} / ${vh}`;
+      this._resizeCanvas();
+    }
   }
 
   /* ── Render loop (draws mask outlines) ───────────────────── */
@@ -258,7 +274,7 @@ class ScoreboardOCR {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     /* Saved masks */
-    for (const type of ['score', 'time']) {
+    for (const type of ['home', 'time', 'away']) {
       if (this.masks[type]) {
         this._drawMaskRect(this.masks[type], MASK_COLORS[type], MASK_LABELS[type]);
       }
@@ -324,12 +340,15 @@ class ScoreboardOCR {
   }
 
   _clearMasks() {
-    this.masks.score = null;
+    this.masks.home  = null;
     this.masks.time  = null;
-    this.scoreValueEl.textContent = '--';
-    this.timeValueEl.textContent  = '--';
-    this.scorePreview.style.display = 'none';
-    this.timePreview.style.display  = 'none';
+    this.masks.away  = null;
+    this.homeValueEl.textContent = '--';
+    this.timeValueEl.textContent = '--';
+    this.awayValueEl.textContent = '--';
+    this.homePreview.style.display = 'none';
+    this.timePreview.style.display = 'none';
+    this.awayPreview.style.display = 'none';
     this.btnOcr.disabled = true;
     if (this.ocrRunning) this._stopOCR();
     this._setStatus('Masks cleared. Draw new masks to continue.');
@@ -393,8 +412,8 @@ class ScoreboardOCR {
     ) {
       this.masks[this.currentMask] = this._relFromAbs(this.drawCurrent);
       const label = MASK_LABELS[this.currentMask];
-      this._setStatus(`${label} mask set.${this._bothMasksSet() ? ' Ready to start OCR.' : ' Now set the other mask.'}`);
-      if (this.masks.score || this.masks.time) this.btnOcr.disabled = false;
+      this._setStatus(`${label} mask set.${this._allMasksSet() ? ' Ready to start OCR.' : ' Now set the other masks.'}`);
+      if (this.masks.home || this.masks.time || this.masks.away) this.btnOcr.disabled = false;
     } else {
       this._setStatus('Rectangle too small – try again.');
     }
@@ -405,8 +424,8 @@ class ScoreboardOCR {
     this.maskInstr.classList.add('hidden');
   }
 
-  _bothMasksSet() {
-    return !!(this.masks.score && this.masks.time);
+  _allMasksSet() {
+    return !!(this.masks.home && this.masks.time && this.masks.away);
   }
 
   /* ── Tesseract worker ─────────────────────────────────────── */
@@ -525,8 +544,9 @@ class ScoreboardOCR {
       fctx.drawImage(this.video, 0, 0, vw, vh);
 
       const jobs = [];
-      if (this.masks.score) jobs.push(this._recognise(frame, this.masks.score, 'score'));
-      if (this.masks.time)  jobs.push(this._recognise(frame, this.masks.time,  'time'));
+      if (this.masks.home) jobs.push(this._recognise(frame, this.masks.home, 'home'));
+      if (this.masks.time) jobs.push(this._recognise(frame, this.masks.time, 'time'));
+      if (this.masks.away) jobs.push(this._recognise(frame, this.masks.away, 'away'));
       await Promise.all(jobs);
     } finally {
       this.ocrBusy = false;
@@ -562,8 +582,9 @@ class ScoreboardOCR {
       const blob = await _canvasToBlob(regionCanvas);
       const { data: { text } } = await this.worker.recognize(blob);
       const clean = text.replace(/[^0-9:.\-/ ]/g, '').trim();
-      if (type === 'score') this.scoreValueEl.textContent = clean || '--';
-      else                  this.timeValueEl.textContent  = clean || '--';
+      if      (type === 'home') this.homeValueEl.textContent = clean || '--';
+      else if (type === 'away') this.awayValueEl.textContent = clean || '--';
+      else                      this.timeValueEl.textContent = clean || '--';
     } catch (err) {
       console.warn(`OCR error (${type}):`, err);
     }
@@ -606,7 +627,9 @@ class ScoreboardOCR {
 
   /* ── Preview thumbnails ───────────────────────────────────── */
   _updatePreview(type, offscreen, w, h) {
-    const el = type === 'score' ? this.scorePreview : this.timePreview;
+    const el = type === 'home' ? this.homePreview
+             : type === 'away' ? this.awayPreview
+             : this.timePreview;
     el.style.display = 'block';
     const maxW = el.parentElement.clientWidth - 24;
     const ratio = Math.min(1, maxW / w);

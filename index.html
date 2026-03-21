@@ -28,15 +28,20 @@
 
     <!-- OCR results -->
     <div id="results">
-      <div class="result-card" id="score-card">
-        <div class="result-label">SCORE</div>
-        <div class="result-value" id="score-value">--</div>
-        <canvas id="score-preview" class="preview-canvas"></canvas>
+      <div class="result-card" id="home-card">
+        <div class="result-label">HOME</div>
+        <div class="result-value" id="home-value">--</div>
+        <canvas id="home-preview" class="preview-canvas"></canvas>
       </div>
       <div class="result-card" id="time-card">
         <div class="result-label">TIME</div>
         <div class="result-value" id="time-value">--</div>
         <canvas id="time-preview" class="preview-canvas"></canvas>
+      </div>
+      <div class="result-card" id="away-card">
+        <div class="result-label">AWAY</div>
+        <div class="result-value" id="away-value">--</div>
+        <canvas id="away-preview" class="preview-canvas"></canvas>
       </div>
     </div>
 
@@ -57,8 +62,9 @@
         <button id="btn-camera" class="btn btn-full">📷 Select Source</button>
       </div>
       <div class="control-row">
-        <button id="btn-mask-score" class="btn btn-half" disabled>🎯 Set Score Mask</button>
-        <button id="btn-mask-time"  class="btn btn-half" disabled>⏱ Set Time Mask</button>
+        <button id="btn-mask-home" class="btn btn-third" disabled>🏠 Home Mask</button>
+        <button id="btn-mask-time"  class="btn btn-third" disabled>⏱ Time Mask</button>
+        <button id="btn-mask-away" class="btn btn-third" disabled>✈ Away Mask</button>
       </div>
       <div class="control-row">
         <button id="btn-clear-masks" class="btn btn-half btn-danger" disabled>🗑 Clear Masks</button>
