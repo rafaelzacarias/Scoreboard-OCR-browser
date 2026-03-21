@@ -79,8 +79,6 @@ function createTestOCR() {
     _setStatus: ScoreboardOCR.prototype._setStatus,
     _initWorker: ScoreboardOCR.prototype._initWorker,
     _doInitWorker: ScoreboardOCR.prototype._doInitWorker,
-    _applyWorkerParams: ScoreboardOCR.prototype._applyWorkerParams,
-    _ensureParams: ScoreboardOCR.prototype._ensureParams,
     _startOCR: ScoreboardOCR.prototype._startOCR,
     _stopOCR: ScoreboardOCR.prototype._stopOCR,
     _processFrame: ScoreboardOCR.prototype._processFrame,
@@ -120,7 +118,7 @@ describe('_initWorker', () => {
     jest.useRealTimers();
   });
 
-  test('soft-fails when setParameters always fails (null API)', async () => {
+  test('rejects when setParameters always fails (broken WASM)', async () => {
     const w = brokenWorker();
     Tesseract.createWorker.mockImplementation(() =>
       Promise.resolve(w),
@@ -129,33 +127,29 @@ describe('_initWorker', () => {
     const ocr = createTestOCR();
     const promise = ocr._initWorker();
 
-    // Advance time past all retry delays (inner retries + reinitialize)
-    await jest.runAllTimersAsync();
-    await promise;
+    let caughtErr;
+    promise.catch((e) => { caughtErr = e; });
 
-    // Worker should still be set – soft-failure means OCR proceeds
-    expect(ocr.worker).toBe(w);
-    expect(ocr.workerReady).toBe(true);
-    // But params were NOT successfully applied
-    expect(ocr._paramsApplied).toBe(false);
-    // reinitialize should have been called between retries
-    expect(w.reinitialize).toHaveBeenCalled();
+    // Advance time past all retry delays
+    await jest.runAllTimersAsync();
+
+    // All retries exhausted – worker should be null
+    expect(caughtErr).toBeDefined();
+    expect(ocr.worker).toBeNull();
+    expect(ocr.workerReady).toBe(false);
+    // Broken workers should be terminated
+    expect(w.terminate).toHaveBeenCalled();
+    expect(ocr.statusEl.textContent).toMatch(/OCR engine error/);
   });
 
-  test('succeeds when setParameters works on an inner retry', async () => {
-    // First call to setParameters fails, second succeeds
-    const w = healthyWorker();
-    let calls = 0;
-    w.setParameters.mockImplementation(() => {
-      calls++;
-      if (calls === 1) {
-        return Promise.reject(
-          "TypeError: Cannot read properties of null (reading 'SetVariable')",
-        );
-      }
-      return Promise.resolve(undefined);
+  test('succeeds when setParameters works on a retry', async () => {
+    // First createWorker → setParameters fails, second createWorker succeeds
+    let createCalls = 0;
+    Tesseract.createWorker.mockImplementation(() => {
+      createCalls++;
+      if (createCalls === 1) return Promise.resolve(brokenWorker());
+      return Promise.resolve(healthyWorker());
     });
-    Tesseract.createWorker.mockResolvedValue(w);
 
     const ocr = createTestOCR();
     const promise = ocr._initWorker();
@@ -163,13 +157,11 @@ describe('_initWorker', () => {
     await jest.runAllTimersAsync();
     await promise;
 
-    expect(ocr.worker).toBe(w);
+    expect(ocr.worker).toBeDefined();
     expect(ocr.workerReady).toBe(true);
     expect(ocr._paramsApplied).toBe(true);
-    // setParameters should have been called at least twice (fail + succeed)
-    expect(w.setParameters.mock.calls.length).toBeGreaterThanOrEqual(2);
-    // reinitialize should have been called after the first failure
-    expect(w.reinitialize).toHaveBeenCalled();
+    // Should have created at least 2 workers (first broken, second healthy)
+    expect(Tesseract.createWorker).toHaveBeenCalledTimes(2);
   });
 
   test('rejects when createWorker itself fails', async () => {
@@ -214,7 +206,7 @@ describe('_startOCR (triggered by Start OCR click)', () => {
   });
   afterEach(() => jest.useRealTimers());
 
-  test('starts OCR even when setParameters fails (soft-fail)', async () => {
+  test('does not start OCR when setParameters always fails', async () => {
     Tesseract.createWorker.mockImplementation(() =>
       Promise.resolve(brokenWorker()),
     );
@@ -222,18 +214,13 @@ describe('_startOCR (triggered by Start OCR click)', () => {
     const ocr = createTestOCR();
     const promise = ocr._startOCR();
 
-    // Use advanceTimersByTime instead of runAllTimersAsync because
-    // _startOCR creates a setInterval that would loop forever.
-    await jest.advanceTimersByTimeAsync(10000);
+    await jest.advanceTimersByTimeAsync(30000);
     await promise;
 
-    // OCR should be running – soft-failure means worker is usable
-    expect(ocr.ocrRunning).toBe(true);
-    expect(ocr.workerReady).toBe(true);
-    expect(ocr._paramsApplied).toBe(false);
-
-    // Clean up interval created by _startOCR
-    ocr._stopOCR();
+    // OCR must NOT be running – worker is broken
+    expect(ocr.ocrRunning).toBe(false);
+    expect(ocr.workerReady).toBe(false);
+    expect(ocr.statusEl.textContent).toMatch(/OCR engine error/);
   });
 
   test('does not throw when createWorker fails', async () => {
